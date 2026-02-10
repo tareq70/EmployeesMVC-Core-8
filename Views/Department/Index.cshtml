@@ -1,0 +1,108 @@
+﻿@{
+    ViewBag.Title = "Departments";
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" rel="stylesheet">
+
+<div class="container mt-4">
+    <h2>Departments</h2>
+    <button id="btnAdd" class="btn btn-primary mb-3">Add Department</button>
+
+    <table id="departmentTable" class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<div class="modal fade" id="deptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="deptId" />
+                <div class="mb-3">
+                    <label>Name</label>
+                    <input type="text" id="deptName" class="form-control" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button id="saveDept" class="btn btn-success">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        var table = $('#departmentTable').DataTable({
+            ajax: '/Department/GetDepartments',
+            columns: [
+                { data: 'DepartmentId' },
+                { data: 'Name' },
+                {
+                    data: 'DepartmentId',
+                    render: function(id){
+                        return `
+                            <button class="btn btn-warning btn-sm editBtn" data-id="${id}">Edit</button>
+                            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
+                        `;
+                    }
+                }
+            ]
+        });
+
+        $('#btnAdd').click(function () {
+            $('#deptId').val('');
+            $('#deptName').val('');
+            new bootstrap.Modal(document.getElementById('deptModal')).show();
+        });
+
+        $('#saveDept').click(function () {
+            var id = $('#deptId').val();
+            var name = $('#deptName').val().trim();
+            if(!name){ alert('Name is required'); return; }
+
+            var url = id ? '/Department/EditDepartment' : '/Department/AddDepartment';
+            var data = id ? { id:id, name:name } : { name:name };
+
+            $.post(url, data, function(res){
+                if(res.success){
+                    table.ajax.reload(null,false);
+                    bootstrap.Modal.getInstance(document.getElementById('deptModal')).hide();
+                } else {
+                    alert(res.message || 'Error occurred');
+                }
+            });
+        });
+
+        $('#departmentTable').on('click', '.editBtn', function(){
+            var row = table.row($(this).parents('tr')).data();
+            $('#deptId').val(row.DepartmentId);
+            $('#deptName').val(row.Name);
+            new bootstrap.Modal(document.getElementById('deptModal')).show();
+        });
+
+        $('#departmentTable').on('click', '.deleteBtn', function(){
+            if(!confirm('Are you sure?')) return;
+            var id = $(this).data('id');
+            $.post('/Department/DeleteDepartment', { id:id }, function(res){
+                if(res.success) table.ajax.reload(null,false);
+                else alert(res.message || 'Error occurred');
+            });
+        });
+    });
+</script>
