@@ -12,6 +12,7 @@
     <table id="employeeTable" class="table table-bordered table-striped">
         <thead class="table-dark">
             <tr>
+                <th></th>
                 <th>Id</th>
                 <th>Name</th>
                 <th>Email</th>
@@ -68,6 +69,11 @@
         var table = $('#employeeTable').DataTable({
             ajax: '/Employee/GetEmployees',
             columns: [
+                {
+                  className: 'dt-control',
+                  orderable: false,
+                  data: null,
+                  defaultContent: '+'},
                 { data: 'EmployeeId' },
                 { data: 'Name' },
                 { data: 'Email' },
@@ -103,6 +109,18 @@
                     }
                 ]
         });
+            $('#employeeTable tbody').on('click', 'td.dt-control', function () {
+        var tr = $(this).closest('tr');
+        var btn = $(this);
+
+        if (btn.text() == '+') {
+            tr.nextAll().hide();
+            btn.text('−');
+        } else {
+            $('#employeeTable tbody tr').show();
+            $('#employeeTable tbody td.dt-control').text('+');
+        }
+    });
 
         // Open Add Modal
         $('#btnAdd').click(function () {
