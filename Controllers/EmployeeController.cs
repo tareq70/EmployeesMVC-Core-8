@@ -1,4 +1,5 @@
-﻿using EmployeesMVC_Core_8.Models;
+﻿using EmployeesMVC_Core_8.Enum;
+using EmployeesMVC_Core_8.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +28,7 @@ namespace EmployeesMVC_Core_8.Controllers
                     e.EmployeeId,
                     e.Name,
                     e.Email,
+                    Status = (int)e.Status,
                     DepartmentName = e.Department.Name
                 })
                 .ToListAsync();
@@ -76,9 +78,24 @@ namespace EmployeesMVC_Core_8.Controllers
         {
             var emp = await _context.Employees.FindAsync(id);
             if (emp == null) return Json(new { success = false, message = "Employee not found" });
+            emp.Status = EmployeeStatus.Deleted;
 
-            _context.Employees.Remove(emp);
             await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+        [HttpPost]
+        public async Task<IActionResult> ToggleEmployeeStatus(int id)
+        {
+            var emp = await _context.Employees.FindAsync(id);
+            if (emp == null) return Json(new { success = false, message = "Employee not found" });
+
+            if (emp.Status == EmployeeStatus.Active)
+                emp.Status = EmployeeStatus.Blocked;
+            else if (emp.Status == EmployeeStatus.Blocked)
+                emp.Status = EmployeeStatus.Active;
+
+            await _context.SaveChangesAsync();
+
             return Json(new { success = true });
         }
 

@@ -80,12 +80,17 @@
                 { data: 'DepartmentName' },
                 {
                     data: 'EmployeeId',
-                    render: function (id) {
-                        return `
-                            <button class="btn btn-warning btn-sm editBtn" data-id="${id}">Edit</button>
-                            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
-                        `;
-                    }
+                        render: function (id, type, row) {
+
+        var toggleText = row.Status == 1 ? "Block" : "Activate";
+
+        return `
+            <button class="btn btn-warning btn-sm editBtn" data-id="${id}">Edit</button>
+            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
+            <button class="btn btn-sm btn-info toggleBtn" data-id="${id}">${toggleText}</button>
+        `;
+    }
+
                 }
             ],
              dom: 'Bfrtip',
@@ -107,7 +112,20 @@
                             columns: [0, 1, 2, 3]
                         }
                     }
-                ]
+                ], rowCallback: function (row, data) {
+
+                    $(row).removeClass('table-success table-warning table-danger');
+
+                    if (data.Status == 1) {
+                        $(row).addClass('table-success');
+                    }
+                    else if (data.Status == 2) {
+                        $(row).addClass('table-warning');
+                    }
+                    else if (data.Status == 3) {
+                        $(row).addClass('table-danger');
+                    }
+                }
         });
             $('#employeeTable tbody').on('click', 'td.dt-control', function () {
         var tr = $(this).closest('tr');
@@ -173,6 +191,22 @@
                 else alert(res.message || 'Error occurred');
             });
         });
+
+        // Toggle Status
+            $('#employeeTable').on('click', '.toggleBtn', function () {
+
+                var id = $(this).data('id');
+
+                $.post('/Employee/ToggleEmployeeStatus', { id: id }, function (res) {
+                    if (res.success) {
+                        table.ajax.reload(null, false);
+                    }
+                    else {
+                        alert(res.message || "Error occurred");
+                    }
+                });
+
+            });
 
     });
 </script>

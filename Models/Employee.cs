@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using EmployeesMVC_Core_8.Enum;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EmployeesMVC_Core_8.Models
@@ -18,6 +19,8 @@ namespace EmployeesMVC_Core_8.Models
         public int DepartmentId { get; set; }
 
         [ForeignKey("DepartmentId")]
-        public virtual Department Department { get; set; } 
+        public virtual Department Department { get; set; }
+        public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
+
     }
 }
