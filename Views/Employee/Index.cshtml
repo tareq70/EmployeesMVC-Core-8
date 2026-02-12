@@ -21,26 +21,35 @@
             </tr>
         </thead>
     </table>
+
+    <div class="mt-5">
+        <h4>Employee Locations</h4>
+        <div id="map" style="width:100%; height:500px;"></div>
+    </div>
 </div>
 
 <!-- Employee Modal -->
 <div class="modal fade" id="empModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Employee</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
             <div class="modal-body">
                 <input type="hidden" id="empId" />
+
                 <div class="mb-3">
                     <label>Name</label>
                     <input type="text" id="empName" class="form-control" />
                 </div>
+
                 <div class="mb-3">
                     <label>Email</label>
                     <input type="email" id="empEmail" class="form-control" />
                 </div>
+
                 <div class="mb-3">
                     <label>Department</label>
                     <select id="empDepartment" class="form-control">
@@ -50,7 +59,15 @@
                         }
                     </select>
                 </div>
+
+                <div class="mb-3">
+                    <label>Pick Location</label>
+                    <div id="empMap" style="width:100%; height:300px; border:1px solid #ccc;"></div>
+                    <input type="hidden" id="empLatitude" />
+                    <input type="hidden" id="empLongitude" />
+                </div>
             </div>
+
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button id="saveEmp" class="btn btn-success">Save</button>
@@ -63,150 +80,219 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
+<script async
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&language=ar&callback=initMap">
+</script>
+
 <script>
 
+    var map, markers = [];
+    var empMap, empMarker;
+    var table;
+
+    // ================= MAIN MAP =================
+    function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 6,
+            center: { lat: 30.0444, lng: 31.2357 }
+        });
+
+        loadEmployeeMarkers();
+    }
+
+    function loadEmployeeMarkers() {
+        $.get('/Employee/GetEmployees', function (res) {
+
+            markers.forEach(m => m.setMap(null));
+            markers = [];
+
+            res.data.forEach(emp => {
+
+                if (emp.Status != 3 && emp.Status != 2 && emp.Latitude && emp.Longitude) {
+
+                    var marker = new google.maps.Marker({
+                        position: {
+                            lat: parseFloat(emp.Latitude),
+                            lng: parseFloat(emp.Longitude)
+                        },
+                        map: map,
+                        title: emp.Name,
+                        label: {
+                            text: emp.Name,
+                            color: "black",
+                            fontSize: "20px",
+                            fontWeight: "bold"
+                        }
+
+                    });
+
+                    var info = new google.maps.InfoWindow({
+                        content: `<strong>${emp.Name}</strong><br/>
+                                  Email: ${emp.Email}<br/>
+                                  Dept: ${emp.DepartmentName}`
+                    });
+
+                    marker.addListener('click', () => info.open(map, marker));
+                    markers.push(marker);
+                }
+            });
+        });
+    }
+
+    // ================= MODAL MAP =================
+    function initEmployeeMap(lat = 30.0444, lng = 31.2357) {
+
+        empMap = new google.maps.Map(document.getElementById("empMap"), {
+            zoom: 6,
+            center: { lat: lat, lng: lng }
+        });
+
+        if (lat && lng) {
+            empMarker = new google.maps.Marker({
+                position: { lat: lat, lng: lng },
+                map: empMap
+            });
+        }
+
+        empMap.addListener('click', function (e) {
+
+            var pos = e.latLng;
+
+            if (empMarker)
+                empMarker.setPosition(pos);
+            else
+                empMarker = new google.maps.Marker({ position: pos, map: empMap });
+
+            $('#empLatitude').val(pos.lat());
+            $('#empLongitude').val(pos.lng());
+        });
+    }
+
+    function openEmployeeModal(emp = null) {
+
+        if (emp) {
+            $('#empId').val(emp.EmployeeId);
+            $('#empName').val(emp.Name);
+            $('#empEmail').val(emp.Email);
+            $('#empDepartment').val(emp.DepartmentId);
+            $('#empLatitude').val(emp.Latitude || '');
+            $('#empLongitude').val(emp.Longitude || '');
+        }
+        else {
+            $('#empId').val('');
+            $('#empName').val('');
+            $('#empEmail').val('');
+            $('#empDepartment').val($('#empDepartment option:first').val());
+            $('#empLatitude').val('');
+            $('#empLongitude').val('');
+        }
+
+        var modal = new bootstrap.Modal(document.getElementById('empModal'));
+        modal.show();
+
+        setTimeout(() => {
+            initEmployeeMap(
+                parseFloat($('#empLatitude').val()) || 30.0444,
+                parseFloat($('#empLongitude').val()) || 31.2357
+            );
+        }, 300);
+    }
+
+    // ================= DOCUMENT READY =================
     $(document).ready(function () {
-        var table = $('#employeeTable').DataTable({
+
+        table = $('#employeeTable').DataTable({
             ajax: '/Employee/GetEmployees',
             columns: [
-                {
-                  className: 'dt-control',
-                  orderable: false,
-                  data: null,
-                  defaultContent: '+'},
+                { data: null, defaultContent: '', orderable: false },
                 { data: 'EmployeeId' },
                 { data: 'Name' },
                 { data: 'Email' },
                 { data: 'DepartmentName' },
                 {
                     data: 'EmployeeId',
-                        render: function (id, type, row) {
+                    render: function (id, type, row) {
 
-        var toggleText = row.Status == 1 ? "Block" : "Activate";
+                        var toggleText = row.Status == 1 ? "Block" : "Activate";
 
-        return `
-            <button class="btn btn-warning btn-sm editBtn" data-id="${id}">Edit</button>
-            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
-            <button class="btn btn-sm btn-info toggleBtn" data-id="${id}">${toggleText}</button>
-        `;
-    }
-
+                        return `
+                            <button class="btn btn-warning btn-sm editBtn">Edit</button>
+                            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
+                            <button class="btn btn-info btn-sm toggleBtn" data-id="${id}">${toggleText}</button>
+                        `;
+                    }
                 }
             ],
-             dom: 'Bfrtip',
-                buttons: [
-                    {
-                        extend: 'excelHtml5',
-                        title: 'Employees Report',
-                        text: 'Export as Excel sheet',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3] // exclude Actions
-                        }
-                    },
-                    {
-                        extend: 'pdfHtml5',
-                        title: 'Employees Report',
-                        orientation: 'landscape',
-                        pageSize: 'A4',
-                        exportOptions: {
-                            columns: [0, 1, 2, 3]
-                        }
-                    }
-                ], rowCallback: function (row, data) {
-
-                    $(row).removeClass('table-success table-warning table-danger');
-
-                    if (data.Status == 1) {
-                        $(row).addClass('table-success');
-                    }
-                    else if (data.Status == 2) {
-                        $(row).addClass('table-warning');
-                    }
-                    else if (data.Status == 3) {
-                        $(row).addClass('table-danger');
-                    }
-                }
+            initComplete: function () {
+                loadEmployeeMarkers();
+            }
         });
-            $('#employeeTable tbody').on('click', 'td.dt-control', function () {
-        var tr = $(this).closest('tr');
-        var btn = $(this);
 
-        if (btn.text() == '+') {
-            tr.nextAll().hide();
-            btn.text('−');
-        } else {
-            $('#employeeTable tbody tr').show();
-            $('#employeeTable tbody td.dt-control').text('+');
-        }
-    });
-
-        // Open Add Modal
+        // Add
         $('#btnAdd').click(function () {
-            $('#empId').val('');
-            $('#empName').val('');
-            $('#empEmail').val('');
-            $('#empDepartment').val($('#empDepartment option:first').val());
-            new bootstrap.Modal(document.getElementById('empModal')).show();
+            openEmployeeModal();
         });
 
-        // Save Employee (Add/Edit)
+        // Edit
+        $('#employeeTable').on('click', '.editBtn', function () {
+            var row = table.row($(this).parents('tr')).data();
+            openEmployeeModal(row);
+        });
+
+        // Save
         $('#saveEmp').click(function () {
+
             var id = $('#empId').val();
-            var name = $('#empName').val().trim();
-            var email = $('#empEmail').val().trim();
-            var deptId = $('#empDepartment').val();
+            var data = {
+                id: id,
+                name: $('#empName').val(),
+                email: $('#empEmail').val(),
+                departmentId: $('#empDepartment').val(),
+                latitude: parseFloat($('#empLatitude').val()) || 0,
+                longitude: parseFloat($('#empLongitude').val()) || 0
+            };
 
             var url = id ? '/Employee/EditEmployee' : '/Employee/AddEmployee';
-            var data = {
-                id: id || null,
-                name: name || null,
-                email: email || null,
-                departmentId: deptId || null
-            };
 
             $.post(url, data, function (res) {
                 if (res.success) {
                     table.ajax.reload(null, false);
+                    loadEmployeeMarkers();
                     bootstrap.Modal.getInstance(document.getElementById('empModal')).hide();
-                } else alert(res.message || 'Error occurred');
+                } else {
+                    alert(res.message || "Error occurred");
+                }
             });
         });
 
-        // Edit button
-         $('#employeeTable').on('click', '.editBtn', function () {
-                var row = table.row($(this).parents('tr')).data();
-                $('#empId').val(row.EmployeeId);
-                $('#empName').val(row.Name);
-                $('#empEmail').val(row.Email);
-                $('#empDepartment').val(row.DepartmentId);
-                var modal = new bootstrap.Modal(document.getElementById('empModal'));
-                modal.show();
-            });
-        // Delete button
+        // Delete
         $('#employeeTable').on('click', '.deleteBtn', function () {
+
             if (!confirm('Are you sure?')) return;
+
             var id = $(this).data('id');
+
             $.post('/Employee/DeleteEmployee', { id: id }, function (res) {
-                if (res.success) table.ajax.reload(null, false);
-                else alert(res.message || 'Error occurred');
+                if (res.success) {
+                    table.ajax.reload(null, false);
+                    loadEmployeeMarkers();
+                }
             });
         });
 
-        // Toggle Status
-            $('#employeeTable').on('click', '.toggleBtn', function () {
+        // Toggle
+        $('#employeeTable').on('click', '.toggleBtn', function () {
 
-                var id = $(this).data('id');
+            var id = $(this).data('id');
 
-                $.post('/Employee/ToggleEmployeeStatus', { id: id }, function (res) {
-                    if (res.success) {
-                        table.ajax.reload(null, false);
-                    }
-                    else {
-                        alert(res.message || "Error occurred");
-                    }
-                });
-
+            $.post('/Employee/ToggleEmployeeStatus', { id: id }, function (res) {
+                if (res.success) {
+                    table.ajax.reload(null, false);
+                    loadEmployeeMarkers();
+                }
             });
+        });
 
     });
+
 </script>

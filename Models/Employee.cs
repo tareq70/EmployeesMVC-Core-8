@@ -21,6 +21,8 @@ namespace EmployeesMVC_Core_8.Models
         [ForeignKey("DepartmentId")]
         public virtual Department Department { get; set; }
         public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
 
     }
 }

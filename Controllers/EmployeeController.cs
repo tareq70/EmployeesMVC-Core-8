@@ -28,6 +28,8 @@ namespace EmployeesMVC_Core_8.Controllers
                     e.EmployeeId,
                     e.Name,
                     e.Email,
+                    e.Latitude,
+                    e.Longitude,
                     Status = (int)e.Status,
                     DepartmentName = e.Department.Name
                 })
@@ -37,7 +39,7 @@ namespace EmployeesMVC_Core_8.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddEmployee(string name, string email, int departmentId)
+        public async Task<IActionResult> AddEmployee(string name, string email, int departmentId, double latitude, double longitude)
         {
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email))
                 return Json(new { success = false, message = "Name and Email are required" });
@@ -46,6 +48,8 @@ namespace EmployeesMVC_Core_8.Controllers
             {
                 Name = name,
                 Email = email,
+                Longitude = longitude,
+                Latitude = latitude,
                 DepartmentId = departmentId
             });
 
@@ -54,7 +58,7 @@ namespace EmployeesMVC_Core_8.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> EditEmployee(int id, string? name, string? email, int? departmentId)
+        public async Task<IActionResult> EditEmployee(int id, string? name, string? email, int? departmentId, double latitude, double longitude)
         {
             var emp = await _context.Employees.FindAsync(id);
             if (emp == null)
@@ -68,6 +72,11 @@ namespace EmployeesMVC_Core_8.Controllers
 
             if (departmentId.HasValue)
                 emp.DepartmentId = departmentId.Value;
+
+            if (latitude != 0)
+                emp.Latitude = latitude;
+            if (longitude != 0)
+                emp.Longitude = longitude;
 
             await _context.SaveChangesAsync();
             return Json(new { success = true });
