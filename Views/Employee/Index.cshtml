@@ -3,7 +3,18 @@
 }
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+
+<!-- =======  Gate ======= -->
+<div id="gateContainer" style="width:100%;height:100vh;position:fixed;top:0;left:0;background:#f8f9fa;z-index:9999;">
+    <div style="width:80%;max-width:600px;margin:50px auto;text-align:center;">
+        <h2>Pick your location on map</h2>
+        <div id="userMap" style="width:100%;height:400px;border:1px solid #ccc;margin-bottom:10px;"></div>
+        <button id="confirmLocation" class="btn btn-success mb-2">OK</button>
+        <button id="useCurrentLocation" class="btn btn-info mb-2">use your current location</button>
+    </div>
+</div>
 
 <div class="container mt-4">
     <h2>Employees</h2>
@@ -20,11 +31,26 @@
                 <th>Actions</th>
             </tr>
         </thead>
+        <tbody></tbody>
     </table>
 
-    <div class="mt-5">
-        <h4>Employee Locations</h4>
-        <div id="map" style="width:100%; height:500px;"></div>
+    <!-- ======= employeesMapContainer ======= -->
+    <div id="employeesMapContainer" class="mt-4" style="display:none;">
+        <h3>Employee Locations</h3>
+        <div id="map" style="width: 100%; height: 500px;"></div>
+
+        <h3 class="mt-4">Nearest Employees</h3>
+        <table class="table table-bordered" id="nearestTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Distance (KM)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
@@ -36,38 +62,32 @@
                 <h5 class="modal-title">Employee</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
             <div class="modal-body">
                 <input type="hidden" id="empId" />
-
                 <div class="mb-3">
                     <label>Name</label>
                     <input type="text" id="empName" class="form-control" />
                 </div>
-
                 <div class="mb-3">
                     <label>Email</label>
-                    <input type="email" id="empEmail" class="form-control" />
+                    <input type="text" id="empEmail" class="form-control" />
                 </div>
-
                 <div class="mb-3">
                     <label>Department</label>
                     <select id="empDepartment" class="form-control">
-                        @foreach (var dept in ViewBag.Departments)
+                        @foreach (var d in ViewBag.Departments)
                         {
-                            <option value="@dept.DepartmentId">@dept.Name</option>
+                            <option value="@d.DepartmentId">@d.Name</option>
                         }
                     </select>
                 </div>
-
                 <div class="mb-3">
                     <label>Pick Location</label>
-                    <div id="empMap" style="width:100%; height:300px; border:1px solid #ccc;"></div>
+                    <div id="empMap" style="width: 100%; height: 300px; border: 1px solid #ccc;"></div>
                     <input type="hidden" id="empLatitude" />
                     <input type="hidden" id="empLongitude" />
                 </div>
             </div>
-
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button id="saveEmp" class="btn btn-success">Save</button>
@@ -76,223 +96,376 @@
     </div>
 </div>
 
+<!-- ================= SCRIPTS ================= -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<script async
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&language=ar&callback=initMap">
-</script>
+<!-- Google Maps API Geometry -->
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKKKvDS5uSR60ZSt5yHQgmR4W02kCjWeY&libraries=geometry&callback=initUserMap"></script>
 
 <script>
 
-    var map, markers = [];
+    var userMap, userMarker;
+    var map, markers = [], selectedMarker;
     var empMap, empMarker;
-    var table;
+    var selectedLat = 30.0444, selectedLng = 31.2357;
+    var userLocation = null;
+    var nearestMarkers = [];
 
-    // ================= MAIN MAP =================
-    function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-            zoom: 6,
-            center: { lat: 30.0444, lng: 31.2357 }
-        });
-
-        loadEmployeeMarkers();
-    }
-
-    function loadEmployeeMarkers() {
-        $.get('/Employee/GetEmployees', function (res) {
-
-            markers.forEach(m => m.setMap(null));
-            markers = [];
-
-            res.data.forEach(emp => {
-
-                if (emp.Status != 3 && emp.Status != 2 && emp.Latitude && emp.Longitude) {
-
-                    var marker = new google.maps.Marker({
-                        position: {
-                            lat: parseFloat(emp.Latitude),
-                            lng: parseFloat(emp.Longitude)
-                        },
-                        map: map,
-                        title: emp.Name,
-                        label: {
-                            text: emp.Name,
-                            color: "black",
-                            fontSize: "20px",
-                            fontWeight: "bold"
-                        }
-
-                    });
-
-                    var info = new google.maps.InfoWindow({
-                        content: `<strong>${emp.Name}</strong><br/>
-                                  Email: ${emp.Email}<br/>
-                                  Dept: ${emp.DepartmentName}`
-                    });
-
-                    marker.addListener('click', () => info.open(map, marker));
-                    markers.push(marker);
-                }
+        // ------------------- Your Location -------------------
+        function initUserMap() {
+            userMap = new google.maps.Map(document.getElementById("userMap"), {
+                center: { lat: 30.0444, lng: 31.2357 },
+                zoom: 7
             });
-        });
-    }
 
-    // ================= MODAL MAP =================
-    function initEmployeeMap(lat = 30.0444, lng = 31.2357) {
+            userMap.addListener("click", function (e) {
+                selectedLat = e.latLng.lat();
+                selectedLng = e.latLng.lng();
 
-        empMap = new google.maps.Map(document.getElementById("empMap"), {
-            zoom: 6,
-            center: { lat: lat, lng: lng }
-        });
-
-        if (lat && lng) {
-            empMarker = new google.maps.Marker({
-                position: { lat: lat, lng: lng },
-                map: empMap
+                if (userMarker) userMarker.setMap(null);
+                userMarker = new google.maps.Marker({
+                    position: { lat: selectedLat, lng: selectedLng },
+                    map: userMap,
+                    icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                });
             });
         }
 
-        empMap.addListener('click', function (e) {
+        // confirm Location button
+        $('#confirmLocation').click(function () {
+            if (!selectedLat || !selectedLng) { alert("please enter your location first"); return; }
+            userLocation = { lat: selectedLat, lng: selectedLng };
 
-            var pos = e.latLng;
+            $('#gateContainer').fadeOut(300, function () { $('#mainContent').fadeIn(300); });
 
-            if (empMarker)
-                empMarker.setPosition(pos);
-            else
-                empMarker = new google.maps.Marker({ position: pos, map: empMap });
-
-            $('#empLatitude').val(pos.lat());
-            $('#empLongitude').val(pos.lng());
+            initEmployeesMap();
         });
-    }
 
-    function openEmployeeModal(emp = null) {
+        // use Current Location button
+        $('#useCurrentLocation').click(function () {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (pos) {
+                    selectedLat = pos.coords.latitude;
+                    selectedLng = pos.coords.longitude;
+                    userLocation = { lat: selectedLat, lng: selectedLng };
 
-        if (emp) {
-            $('#empId').val(emp.EmployeeId);
-            $('#empName').val(emp.Name);
-            $('#empEmail').val(emp.Email);
-            $('#empDepartment').val(emp.DepartmentId);
-            $('#empLatitude').val(emp.Latitude || '');
-            $('#empLongitude').val(emp.Longitude || '');
-        }
-        else {
-            $('#empId').val('');
-            $('#empName').val('');
-            $('#empEmail').val('');
-            $('#empDepartment').val($('#empDepartment option:first').val());
-            $('#empLatitude').val('');
-            $('#empLongitude').val('');
-        }
+                    if (userMarker) userMarker.setMap(null);
+                    userMarker = new google.maps.Marker({
+                        position: userLocation,
+                        map: userMap,
+                        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    });
 
-        var modal = new bootstrap.Modal(document.getElementById('empModal'));
-        modal.show();
-
-        setTimeout(() => {
-            initEmployeeMap(
-                parseFloat($('#empLatitude').val()) || 30.0444,
-                parseFloat($('#empLongitude').val()) || 31.2357
-            );
-        }, 300);
-    }
-
-    // ================= DOCUMENT READY =================
-    $(document).ready(function () {
-
-        table = $('#employeeTable').DataTable({
-            ajax: '/Employee/GetEmployees',
-            columns: [
-                { data: null, defaultContent: '', orderable: false },
-                { data: 'EmployeeId' },
-                { data: 'Name' },
-                { data: 'Email' },
-                { data: 'DepartmentName' },
-                {
-                    data: 'EmployeeId',
-                    render: function (id, type, row) {
-
-                        var toggleText = row.Status == 1 ? "Block" : "Activate";
-
-                        return `
-                            <button class="btn btn-warning btn-sm editBtn">Edit</button>
-                            <button class="btn btn-danger btn-sm deleteBtn" data-id="${id}">Delete</button>
-                            <button class="btn btn-info btn-sm toggleBtn" data-id="${id}">${toggleText}</button>
-                        `;
-                    }
-                }
-            ],
-            initComplete: function () {
-                loadEmployeeMarkers();
+                    $('#gateContainer').fadeOut(300, function () { $('#mainContent').fadeIn(300); });
+                    initEmployeesMap();
+                }, function () { alert("error happen"); });
             }
         });
 
-        // Add
-        $('#btnAdd').click(function () {
-            openEmployeeModal();
+
+        // confirm Location button
+        $('#confirmLocation').click(function () {
+            if (!selectedLat || !selectedLng) {
+                alert("please enter your location first");
+                return;
+            }
+            userLocation = { lat: selectedLat, lng: selectedLng };
+            $('#userMapContainer').hide();
+            $('#employeesMapContainer').show();
+            initEmployeesMap();
         });
 
-        // Edit
-        $('#employeeTable').on('click', '.editBtn', function () {
-            var row = table.row($(this).parents('tr')).data();
-            openEmployeeModal(row);
+        // use Current Location button
+        $('#useCurrentLocation').click(function () {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (pos) {
+                    selectedLat = pos.coords.latitude;
+                    selectedLng = pos.coords.longitude;
+                    userLocation = { lat: selectedLat, lng: selectedLng };
+
+                    if (userMarker) userMarker.setMap(null);
+                    userMarker = new google.maps.Marker({
+                        position: userLocation,
+                        map: userMap,
+                        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    });
+
+                    $('#userMapContainer').hide();
+                    $('#employeesMapContainer').show();
+                    initEmployeesMap();
+                }, function () { alert("error happen"); });
+            }
         });
 
-        // Save
-        $('#saveEmp').click(function () {
 
-            var id = $('#empId').val();
-            var data = {
-                id: id,
-                name: $('#empName').val(),
-                email: $('#empEmail').val(),
-                departmentId: $('#empDepartment').val(),
-                latitude: parseFloat($('#empLatitude').val()) || 0,
-                longitude: parseFloat($('#empLongitude').val()) || 0
-            };
+        // ------------------- Employees Map -------------------
+         function initEmployeesMap()
+        {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: userLocation || { lat: 30.0444, lng: 31.2357 },
+                zoom: 7
+            });
+            if (!selectedMarker) 
+            {
+                selectedMarker = new google.maps.Marker({
+                position: userLocation,
+                map: map,
+                title: "Your Location",
+                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            });
+            } else {
+                selectedMarker.setPosition(userLocation);
+            }
 
-            var url = id ? '/Employee/EditEmployee' : '/Employee/AddEmployee';
 
-            $.post(url, data, function (res) {
-                if (res.success) {
-                    table.ajax.reload(null, false);
-                    loadEmployeeMarkers();
-                    bootstrap.Modal.getInstance(document.getElementById('empModal')).hide();
-                } else {
-                    alert(res.message || "Error occurred");
+            loadEmployeeMarkers(function (employees) {
+                findNearestEmployeesFromPoint(employees, userLocation.lat, userLocation.lng);
+            });
+
+           map.addListener("click", function (e) {
+               selectedLat = e.latLng.lat();
+               selectedLng = e.latLng.lng();
+               userLocation = { lat: selectedLat, lng: selectedLng };
+           
+               if (selectedMarker) selectedMarker.setMap(null);
+           
+               selectedMarker = new google.maps.Marker({
+                   position: userLocation,
+                   map: map,
+                   icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                   title: "Your Location"
+               });
+           
+               loadEmployeeMarkers(function (employees) {
+                   findNearestEmployeesFromPoint(employees, selectedLat, selectedLng);
+               });
+           });
+
+        }
+    function showNearestOnMap(list) {
+        nearestMarkers.forEach(m => m.setMap(null));
+        nearestMarkers = [];
+
+        list.forEach(emp => {
+            if(emp.Status!=2 && emp.Status != 3 &&emp.Latitude && emp.Longitude){
+                var m = new google.maps.Marker({
+                    position: { lat: parseFloat(emp.Latitude), lng: parseFloat(emp.Longitude) },
+                    map: map,
+                    title: emp.Name,
+                     label: {
+                      text: emp.Name,
+                      color: "black",
+                      fontSize: "20px",
+                      fontWeight: "bold"
+                     },
+                      icon: emp.Status == 1
+                      ? 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+                      : 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                });
+                nearestMarkers.push(m);
+            }
+        });
+    }
+
+        // load Employee Markers
+        function loadEmployeeMarkers(callback) {
+            $.get('/Employee/GetEmployees', function (res) {
+                markers.forEach(m => m.setMap(null));
+                markers = [];
+
+                res.data.forEach(emp => {
+                    if (emp.Status != 3 && emp.Status != 2 && emp.Latitude && emp.Longitude) {
+                        var marker = new google.maps.Marker({
+                            position: { lat: parseFloat(emp.Latitude), lng: parseFloat(emp.Longitude) },
+                            map: map,
+                            title: emp.Name,
+                            label: {
+                                text: emp.Name,
+                                color: "black",
+                                fontSize: "20px",
+                                fontWeight: "bold"
+                            },
+                            icon: emp.Status == 1
+                                ? 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
+                                : 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                        });
+                        markers.push(marker);
+                    }
+                });
+                if (callback) callback(res.data);
+            });
+        }
+
+        // find Nearest Employees From Point
+        function findNearestEmployeesFromPoint(employees, lat, lng) {
+            employees.forEach(emp => {
+            if(emp.Status!=2 && emp.Status != 3 &&emp.Latitude && emp.Longitude){
+                    emp.Distance = google.maps.geometry.spherical.computeDistanceBetween(
+                        new google.maps.LatLng(lat, lng),
+                        new google.maps.LatLng(emp.Latitude, emp.Longitude)
+                    ) / 1000;
+                } else { emp.Distance = 999999; }
+            });
+
+            var nearest = employees.sort((a, b) => a.Distance - b.Distance).slice(0, 10);
+
+            showNearestOnMap(nearest);
+            showNearestInTable(nearest);
+        }
+
+
+        
+        // function showNearestOnMap(list) {
+        //     list.forEach(emp => {
+        //         new google.maps.Marker({
+        //             position: { lat: parseFloat(emp.Latitude), lng: parseFloat(emp.Longitude) },
+        //             map: map,
+        //             title: emp.Name,
+        //             icon: "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png"
+        //         });
+        //     });
+        // }
+
+        function showNearestInTable(list) {
+            var tbody = $("#nearestTable tbody");
+            tbody.empty();
+            list.forEach(emp => {
+                tbody.append(`<tr>
+                <td>${emp.Name}</td>
+                <td>${emp.Email}</td>
+                <td>${emp.DepartmentName}</td>
+                <td>${emp.Distance.toFixed(2)}</td>
+            </tr>`);
+            });
+        }
+
+        // =================== Employee Model ===================
+        function initEmployeeMap(lat = 30.0444, lng = 31.2357) {
+            empMap = new google.maps.Map(document.getElementById("empMap"), {
+                zoom: 6, center: { lat: lat, lng: lng }
+            });
+
+            if (lat && lng) {
+                empMarker = new google.maps.Marker({ position: { lat, lng }, map: empMap });
+            } else { empMarker = null; }
+
+            empMap.addListener('click', function (e) {
+                var pos = e.latLng;
+                if (empMarker) empMarker.setPosition(pos);
+                else empMarker = new google.maps.Marker({ position: pos, map: empMap });
+
+                $('#empLatitude').val(pos.lat());
+                $('#empLongitude').val(pos.lng());
+            });
+        }
+
+        function openEmployeeModal(emp = null) {
+            if (emp) {
+                $('#empId').val(emp.EmployeeId);
+                $('#empName').val(emp.Name);
+                $('#empEmail').val(emp.Email);
+                $('#empDepartment').val(emp.DepartmentId);
+                $('#empLatitude').val(emp.Latitude || '');
+                $('#empLongitude').val(emp.Longitude || '');
+                setTimeout(() => initEmployeeMap(parseFloat(emp.Latitude) || 30.0444, parseFloat(emp.Longitude) || 31.2357), 200);
+            } else {
+                $('#empId').val('');
+                $('#empName').val('');
+                $('#empEmail').val('');
+                $('#empDepartment').val($('#empDepartment option:first').val());
+                $('#empLatitude').val('');
+                $('#empLongitude').val('');
+                setTimeout(() => initEmployeeMap(), 200);
+            }
+            new bootstrap.Modal(document.getElementById('empModal')).show();
+        }
+
+        // =================== DataTable & Buttons ===================
+        $(document).ready(function () {
+            var table = $('#employeeTable').DataTable({
+                ajax: '/Employee/GetEmployees',
+                columns: [
+                    { className: 'dt-control', orderable: false, data: null, defaultContent: '+' },
+                    { data: 'EmployeeId' },
+                    { data: 'Name' },
+                    { data: 'Email' },
+                    { data: 'DepartmentName' },
+                    {
+                        data: 'EmployeeId',
+                        render: function (id, type, row) {
+                            var toggleText = row.Status == 1 ? "Block" : "Activate";
+                            return `<button class="btn btn-sm btn-warning editBtn" data-id="${id}">Edit</button>
+                            <button class="btn btn-sm btn-danger deleteBtn" data-id="${id}">Delete</button>
+                            <button class="btn btn-sm btn-info toggleBtn" data-id="${id}">${toggleText}</button>`;
+                        }
+                    }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    { extend: 'excelHtml5', title: 'Employees Report', exportOptions: { columns: [0, 1, 2, 3] } },
+                    { extend: 'pdfHtml5', title: 'Employees Report', orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: [0, 1, 2, 3] } }
+                ],
+                rowCallback: function (row, data) {
+                    $(row).removeClass('table-success table-warning table-danger');
+                    if (data.Status == 1) $(row).addClass('table-success');
+                    else if (data.Status == 2) $(row).addClass('table-warning');
+                    else if (data.Status == 3) $(row).addClass('table-danger');
                 }
             });
-        });
 
-        // Delete
-        $('#employeeTable').on('click', '.deleteBtn', function () {
+            $('#employeeTable tbody').on('click', 'td.dt-control', function () {
+                var tr = $(this).closest('tr'), btn = $(this);
+                if (btn.text() == '+') { tr.nextAll().hide(); btn.text('−'); }
+                else { $('#employeeTable tbody tr').show(); $('#employeeTable tbody td.dt-control').text('+'); }
+            });
 
-            if (!confirm('Are you sure?')) return;
+            $('#btnAdd').click(() => openEmployeeModal());
 
-            var id = $(this).data('id');
+            $('#saveEmp').click(function () {
+                var id = $('#empId').val(), name = $('#empName').val().trim(), email = $('#empEmail').val().trim(),
+                    departmentId = $('#empDepartment').val(), latitude = parseFloat($('#empLatitude').val()) || 0,
+                    longitude = parseFloat($('#empLongitude').val()) || 0;
 
-            $.post('/Employee/DeleteEmployee', { id: id }, function (res) {
-                if (res.success) {
-                    table.ajax.reload(null, false);
-                    loadEmployeeMarkers();
-                }
+                if (!name || !email) { alert('Name and Email are required'); return; }
+
+                var url = id ? '/Employee/EditEmployee' : '/Employee/AddEmployee';
+                var data = { id, name, email, departmentId, latitude, longitude };
+
+                $.post(url, data, function (res) {
+                    if (res.success) {
+                        table.ajax.reload(null, false);
+                        loadEmployeeMarkers();
+                        bootstrap.Modal.getInstance(document.getElementById('empModal')).hide();
+                    } else alert(res.message || 'Error occurred');
+                });
+            });
+
+            //  Edit, Delete, Toggle Status
+            $('#employeeTable').on('click', '.editBtn', function () {
+                var row = table.row($(this).parents('tr')).data(); openEmployeeModal(row);
+            });
+            $('#employeeTable').on('click', '.deleteBtn', function () {
+                if (!confirm('Are you sure?')) return;
+                var id = $(this).data('id');
+                $.post('/Employee/DeleteEmployee', { id }, function (res) {
+                    if (res.success) { table.ajax.reload(null, false); loadEmployeeMarkers(); }
+                    else alert(res.message || 'Error occurred');
+                });
+            });
+            $('#employeeTable').on('click', '.toggleBtn', function () {
+                var id = $(this).data('id');
+                $.post('/Employee/ToggleEmployeeStatus', { id }, function (res) {
+                    if (res.success) table.ajax.reload(null, false);
+                    else alert(res.message || 'Error occurred');
+                });
             });
         });
-
-        // Toggle
-        $('#employeeTable').on('click', '.toggleBtn', function () {
-
-            var id = $(this).data('id');
-
-            $.post('/Employee/ToggleEmployeeStatus', { id: id }, function (res) {
-                if (res.success) {
-                    table.ajax.reload(null, false);
-                    loadEmployeeMarkers();
-                }
-            });
-        });
-
-    });
-
 </script>

@@ -99,9 +99,8 @@
     <!-- Site JS -->
     <script src="~/js/site.js" asp-append-version="true"></script>
 
-    <script async
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKKKvDS5uSR60ZSt5yHQgmR4W02kCjWeY&language=ar&callback=initMap">
-    </script>
+    <!-- Google Maps API Geometry -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKKKvDS5uSR60ZSt5yHQgmR4W02kCjWeY&libraries=geometry&callback=initUserMap"></script>
 
     @await RenderSectionAsync("scripts", required: false)
 
