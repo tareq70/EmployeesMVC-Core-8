@@ -213,17 +213,13 @@
                 center: userLocation || { lat: 30.0444, lng: 31.2357 },
                 zoom: 7
             });
-            if (!selectedMarker) 
-            {
+            
                 selectedMarker = new google.maps.Marker({
                 position: userLocation,
                 map: map,
                 title: "Your Location",
                 icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-            });
-            } else {
-                selectedMarker.setPosition(userLocation);
-            }
+                });
 
 
             loadEmployeeMarkers(function (employees) {
@@ -269,7 +265,20 @@
                       icon: emp.Status == 1
                       ? 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
                       : 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                    });var infoContent = `
+                    <div>
+                        <h5>${emp.Name}</h5>
+                        <p><strong>Email:</strong> ${emp.Email}</p>
+                        <p><strong>Department:</strong> ${emp.DepartmentName}</p>
+                        <p><strong>Status:</strong> ${emp.Status == 1 ? 'Active' : 'Inactive'}</p>
+                    </div>
+                `;
+                var infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+                m.addListener('click', function() {
+                    infoWindow.open(map, m);
                 });
+
                 nearestMarkers.push(m);
             }
         });
