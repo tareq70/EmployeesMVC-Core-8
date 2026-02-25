@@ -1,0 +1,10 @@
+﻿@model int
+
+<div class="container mt-5">
+    <h3>Test Payment</h3>
+
+    <form asp-controller="Payment" asp-action="Pay" method="post">
+        <input type="hidden" name="orderId" value="@Model" />
+        <button class="btn btn-success">Pay with Fawry</button>
+    </form>
+</div>
