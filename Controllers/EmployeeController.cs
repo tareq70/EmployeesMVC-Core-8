@@ -4,7 +4,8 @@ using EmployeesMVC_Core_8.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-
+using EmployeesMVC_Core_8.Hangfire;
+using Hangfire;
 
 namespace EmployeesMVC_Core_8.Controllers
 {
@@ -44,7 +45,6 @@ namespace EmployeesMVC_Core_8.Controllers
 
             return Json(new { data = employees });
         }
-
         [HttpPost]
         public async Task<IActionResult> AddEmployee(string name, string email, int departmentId, double latitude, double longitude)
         {
@@ -73,10 +73,8 @@ namespace EmployeesMVC_Core_8.Controllers
                 emp.Latitude,
                 emp.Longitude
             });
-
             return Json(new { success = true });
         }
-
         [HttpPost]
         public async Task<IActionResult> EditEmployee(int id, string? name, string? email, int? departmentId, double latitude, double longitude)
         {
@@ -110,7 +108,6 @@ namespace EmployeesMVC_Core_8.Controllers
                 emp.Latitude,
                 emp.Longitude
             });
-
             return Json(new { success = true });
         }
 
@@ -143,9 +140,7 @@ namespace EmployeesMVC_Core_8.Controllers
                 EmployeeId = emp.EmployeeId,
                 Status = (int)emp.Status
             });
-
             return Json(new { success = true });
         }
-
     }
 }
