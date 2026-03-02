@@ -1,3 +1,4 @@
+using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,10 +13,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+        options.JsonSerializerOptions.PropertyNamingPolicy = null; 
+    });
+
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = null; 
     });
 
 
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -33,6 +41,10 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.MapHub<EmployeeHub>("/employeeHub");
+app.MapHub<DepartmentHub>("/departmentHub");
+
 
 app.MapControllerRoute(
     name: "default",
