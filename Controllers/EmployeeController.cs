@@ -1,12 +1,11 @@
 ﻿using EmployeesMVC_Core_8.Enum;
-using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
-using EmployeesMVC_Core_8.Services.Email;
-using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using EmployeesMVC_Core_8.Hangfire;
+using Hangfire;
 
 namespace EmployeesMVC_Core_8.Controllers
 {
@@ -14,14 +13,11 @@ namespace EmployeesMVC_Core_8.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<EmployeeHub> _hub;
-        private readonly IEmailHelper _email;
 
-
-        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub, IEmailHelper email)
+        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub)
         {
             _context = context;
             _hub = hub;
-            _email = email;
 
         }
         public IActionResult Index()
@@ -65,10 +61,8 @@ namespace EmployeesMVC_Core_8.Controllers
             };
 
             _context.Employees.Add(emp);
+            await _context.SaveChangesAsync();
 
-            var saved = await _context.SaveChangesAsync();
-
-            
             await _hub.Clients.All.SendAsync("EmployeeAdded", new
             {
                 emp.EmployeeId,
@@ -79,16 +73,6 @@ namespace EmployeesMVC_Core_8.Controllers
                 emp.Latitude,
                 emp.Longitude
             });
-
-            if (saved > 0)
-            {
-                await _email.SendEmailAsync(
-                    emp.Email,
-                    "Welcome to the ALBAIT Company",
-                    $"<h2>Welcome {emp.Name}</h2>"
-                );
-            }
-
             return Json(new { success = true });
         }
         [HttpPost]
