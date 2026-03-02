@@ -1,23 +1,16 @@
 ﻿using EmployeesMVC_Core_8.Enum;
-using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-
 
 namespace EmployeesMVC_Core_8.Controllers
 {
     public class EmployeeController : Controller
     {
         private readonly AppDbContext _context;
-        private readonly IHubContext<EmployeeHub> _hub;
-
-        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub)
+        public EmployeeController(AppDbContext context)
         {
             _context = context;
-            _hub = hub;
-
         }
         public IActionResult Index()
         {
@@ -32,7 +25,7 @@ namespace EmployeesMVC_Core_8.Controllers
                 .Include(e => e.Department)
                 .Select(e => new
                 {
-                    e.EmployeeId, 
+                    e.EmployeeId,
                     e.Name,
                     e.Email,
                     e.Latitude,
@@ -51,29 +44,16 @@ namespace EmployeesMVC_Core_8.Controllers
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email))
                 return Json(new { success = false, message = "Name and Email are required" });
 
-            var emp = new Employee
+            _context.Employees.Add(new Employee
             {
                 Name = name,
                 Email = email,
                 Longitude = longitude,
                 Latitude = latitude,
                 DepartmentId = departmentId
-            };
-
-            _context.Employees.Add(emp);
-            await _context.SaveChangesAsync();
-
-            await _hub.Clients.All.SendAsync("EmployeeAdded", new
-            {
-                emp.EmployeeId,
-                emp.Name,
-                emp.Email,
-                DepartmentName = _context.Departments.FirstOrDefault(d => d.DepartmentId == emp.DepartmentId)?.Name,
-                emp.Status,
-                emp.Latitude,
-                emp.Longitude
             });
 
+            await _context.SaveChangesAsync();
             return Json(new { success = true });
         }
 
@@ -99,18 +79,6 @@ namespace EmployeesMVC_Core_8.Controllers
                 emp.Longitude = longitude;
 
             await _context.SaveChangesAsync();
-
-            await _hub.Clients.All.SendAsync("EmployeeUpdated", new
-            {
-                emp.EmployeeId,
-                emp.Name,
-                emp.Email,
-                DepartmentName = _context.Departments.FirstOrDefault(d => d.DepartmentId == emp.DepartmentId)?.Name,
-                emp.Status,
-                emp.Latitude,
-                emp.Longitude
-            });
-
             return Json(new { success = true });
         }
 
@@ -122,8 +90,6 @@ namespace EmployeesMVC_Core_8.Controllers
             emp.Status = EmployeeStatus.Deleted;
 
             await _context.SaveChangesAsync();
-            await _hub.Clients.All.SendAsync("EmployeeDeleted", new { EmployeeId = id });
-
             return Json(new { success = true });
         }
         [HttpPost]
@@ -138,11 +104,6 @@ namespace EmployeesMVC_Core_8.Controllers
                 emp.Status = EmployeeStatus.Active;
 
             await _context.SaveChangesAsync();
-            await _hub.Clients.All.SendAsync("EmployeeStatusToggled", new
-            {
-                EmployeeId = emp.EmployeeId,
-                Status = (int)emp.Status
-            });
 
             return Json(new { success = true });
         }
