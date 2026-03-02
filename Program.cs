@@ -1,6 +1,7 @@
 using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
+using EmployeesMVC_Core_8.Services.Email;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
+builder.Services.AddScoped<IEmailHelper, EmailHelper>();
 
 //solve error with camelCase in JSON responses
 builder.Services.AddControllersWithViews()
