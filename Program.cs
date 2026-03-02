@@ -1,5 +1,9 @@
+using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
+using EmployeesMVC_Core_8.Services.Email;
+using Hangfire;
+using Hangfire.MemoryStorage;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<IEmailHelper, EmailHelper>();
 
 //solve error with camelCase in JSON responses
 builder.Services.AddControllersWithViews()
@@ -22,10 +28,23 @@ builder.Services.AddSignalR()
         options.PayloadSerializerOptions.PropertyNamingPolicy = null; 
     });
 
+builder.Services.AddHangfire(config =>
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+          .UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UseMemoryStorage() 
+);
+
+builder.Services.AddHangfireServer();
 
 builder.Services.AddSignalR();
 
 var app = builder.Build();
+app.UseHangfireDashboard();
+
+RecurringJob.AddOrUpdate<EmployeeJobs>(
+    job => job.CheckBlockedEmployees(),
+"*/1 * * * *");
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

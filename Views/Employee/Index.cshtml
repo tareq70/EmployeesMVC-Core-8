@@ -178,6 +178,18 @@
         loadEmployeeMarkers();
     });
 
+     connection.on("EmployeeStatusUpdated", function(updatedEmployees){
+        var table = $('#employeeTable').DataTable();
+        updatedEmployees.forEach(emp => {
+            var row = table.row(function(idx, data, node){
+                return data.EmployeeId == emp.EmployeeId;
+            });
+            if(row.node()) {
+                row.data(emp).draw(false);
+            }
+        });
+    });
+
 
 </script>
 
