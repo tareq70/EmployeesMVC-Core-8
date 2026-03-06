@@ -8,9 +8,9 @@
     <!-- Bootstrap -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
 
-    <!-- Site CSS -->
+    @*     <!-- Site CSS -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/EmployeesMVC_Core_8.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/EmployeesMVC_Core_8.styles.css" asp-append-version="true" /> *@
 
     <!-- DataTables -->
     <link rel="stylesheet"
@@ -19,7 +19,7 @@
     <!-- DataTables Buttons -->
     <link rel="stylesheet"
           href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css" />
-   
+
 </head>
 <body>
 
@@ -100,9 +100,76 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     <!-- Google Maps API Geometry -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKKKvDS5uSR60ZSt5yHQgmR4W02kCjWeY&libraries=geometry&callback=initUserMap"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-messaging.js";
+
+        // 1️⃣ Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpJJa-4S4tE5JaXlTQDweQq34RproD3v0",
+            authDomain: "albait-55f36.firebaseapp.com",
+            projectId: "albait-55f36",
+            storageBucket: "albait-55f36.firebasestorage.app",
+            messagingSenderId: "730731610581",
+            appId: "1:730731610581:web:eb105232ed1fbe1b53fd5c",
+            measurementId: "G-VDYDG46Z03"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const messaging = getMessaging(app);
+
+        // 2️⃣ Request Permission & Register Service Worker
+        async function requestPermission() {
+            try {
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                console.log('Service Worker registered:', registration.scope);
+
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") {
+                    console.log("Notification permission denied.");
+                    return;
+                }
+                console.log("Notification permission granted.");
+
+                // 3️⃣ Get FCM Token
+                const token = await getToken(messaging, {
+                    vapidKey: "BARZ8CtUxp2-WS5EoAltHR2E2JQ4VDIMTEYKJ08d8Atk4qheJ6At21ssfOt6mOvm-wJGZEbLHP0Z_Q_oGm-eG7k",
+                    serviceWorkerRegistration: registration
+                });
+                console.log("DEVICE TOKEN:", token);
+
+                // 4️⃣ Send token to server
+                fetch('/Employee/SaveToken', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(token)
+                });
+
+                // 5️⃣ Foreground message listener
+                       onMessage(messaging, (payload) => {
+            console.log("🔔 Message received in foreground: ", payload);
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(
+                    payload.notification?.title || payload.data?.title, {
+                    body: payload.notification?.body || payload.data?.body,
+                    icon: '/icon.png'
+                });
+            });
+        });
+                new Notification("Test Direct", { body: "Foreground notifications working!" });
+                console.log("onMessage listener set up done.");
+
+            } catch (error) {
+                console.error("Firebase error:", error);
+            }
+        }
+
+        // 6️⃣ Run
+        requestPermission();
+    </script>
+
     @await RenderSectionAsync("scripts", required: false)
 
 </body>

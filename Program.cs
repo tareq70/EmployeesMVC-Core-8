@@ -2,6 +2,9 @@ using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using EmployeesMVC_Core_8.Services.Email;
+using EmployeesMVC_Core_8.Services.Firebase_Notifications;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Hangfire.MemoryStorage;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +16,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
 builder.Services.AddScoped<IEmailHelper, EmailHelper>();
+builder.Services.AddScoped<IFirebaseService, FirebaseService>();
 
 //solve error with camelCase in JSON responses
 builder.Services.AddControllersWithViews()
@@ -34,6 +39,11 @@ builder.Services.AddHangfire(config =>
           .UseRecommendedSerializerSettings()
           .UseMemoryStorage() 
 );
+
+FirebaseApp.Create(new AppOptions()
+{
+    Credential = GoogleCredential.FromFile("wwwroot/firebase/service-account.json")
+});
 
 builder.Services.AddHangfireServer();
 

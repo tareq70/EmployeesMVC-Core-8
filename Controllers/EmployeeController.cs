@@ -3,10 +3,15 @@ using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using EmployeesMVC_Core_8.Services.Email;
+using EmployeesMVC_Core_8.Services.Firebase_Notifications;
+using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace EmployeesMVC_Core_8.Controllers
 {
@@ -15,14 +20,15 @@ namespace EmployeesMVC_Core_8.Controllers
         private readonly AppDbContext _context;
         private readonly IHubContext<EmployeeHub> _hub;
         private readonly IEmailHelper _email;
+        private readonly IFirebaseService _firebaseService;
 
 
-        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub, IEmailHelper email)
+        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub, IEmailHelper email, IFirebaseService firebaseService)
         {
             _context = context;
             _hub = hub;
             _email = email;
-
+            _firebaseService = firebaseService;
         }
         public IActionResult Index()
         {
@@ -157,6 +163,72 @@ namespace EmployeesMVC_Core_8.Controllers
                 Status = (int)emp.Status
             });
             return Json(new { success = true });
+        }
+        [HttpPost]
+        public async Task<IActionResult> SaveToken([FromBody] string token)
+        {
+            if (string.IsNullOrEmpty(token))
+                return BadRequest();
+
+            var exists = await _context.DeviceTokens.AnyAsync(x => x.Token == token);
+
+            if (!exists)
+            {
+                _context.DeviceTokens.Add(new DeviceToken
+                {
+                    Token = token
+                });
+
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok();
+        }
+        public async Task<IActionResult> SendTest()
+        {
+            var deviceTokens = await _context.DeviceTokens.Select(x => x.Token).ToListAsync();
+            if (!deviceTokens.Any())
+                return Json(new { status = "No Tokens", response = "No FCM tokens found" });
+
+            GoogleCredential credential;
+            using (var stream = new FileStream(@"wwwroot/firebase/service-account.json", FileMode.Open, FileAccess.Read))
+            {
+                credential = GoogleCredential.FromStream(stream)
+                    .CreateScoped("https://www.googleapis.com/auth/firebase.messaging");
+            }
+
+            var accessToken = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            foreach (var token in deviceTokens)
+            {
+                var message = new
+                {
+                    message = new
+                    {
+                        token = token,
+                        notification = new
+                        {
+                            title = "Hi Tarek",
+                            body = "Hello from ALBait Software House 🔥"
+                        },
+                        webpush = new
+                        {
+                            notification = new
+                            {
+                                icon = "https://cdn-icons-png.flaticon.com/512/1827/1827392.png"
+                            }
+                        }
+                    }
+                };
+
+                var content = new StringContent(JsonSerializer.Serialize(message), Encoding.UTF8, "application/json");
+                var response = await client.PostAsync("https://fcm.googleapis.com/v1/projects/albait-55f36/messages:send", content);
+                Console.WriteLine(await response.Content.ReadAsStringAsync());
+            }
+
+            return Json(new { status = "Done", response = "Notifications sent" });
         }
     }
 }
