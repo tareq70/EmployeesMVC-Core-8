@@ -1,7 +1,7 @@
 ﻿using EmployeesMVC_Core_8.Enum;
 using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
-using EmployeesMVC_Core_8.Models;
+using SharedModels.Models;
 using EmployeesMVC_Core_8.Services.Email;
 using EmployeesMVC_Core_8.Services.Firebase_Notifications;
 using EmployeesMVC_Core_8.Services.WhatsApp;
@@ -14,7 +14,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace EmployeesMVC_Core_8.Controllers
+namespace SharedModels.Controllers
 {
     public class EmployeeController : Controller
     {

@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using EmployeesMVC_Core_8.Models;
+using SharedModels.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeesMVC_Core_8.Controllers

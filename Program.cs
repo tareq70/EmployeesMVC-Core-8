@@ -1,6 +1,6 @@
 using EmployeesMVC_Core_8.Hangfire;
 using EmployeesMVC_Core_8.Hubs;
-using EmployeesMVC_Core_8.Models;
+using SharedModels.Models;
 using EmployeesMVC_Core_8.Services.Email;
 using EmployeesMVC_Core_8.Services.Firebase_Notifications;
 using EmployeesMVC_Core_8.Services.WhatsApp;

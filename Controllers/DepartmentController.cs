@@ -1,4 +1,4 @@
-﻿using EmployeesMVC_Core_8.Models;
+﻿using SharedModels.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

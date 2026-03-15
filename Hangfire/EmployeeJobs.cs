@@ -1,6 +1,6 @@
 ﻿using EmployeesMVC_Core_8.Enum;
 using EmployeesMVC_Core_8.Hubs;
-using EmployeesMVC_Core_8.Models;
+using SharedModels.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
