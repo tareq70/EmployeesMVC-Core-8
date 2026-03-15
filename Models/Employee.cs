@@ -23,6 +23,9 @@ namespace EmployeesMVC_Core_8.Models
         public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
         public double Latitude { get; set; }
         public double Longitude { get; set; }
+        [Required]
+        [StringLength(15)]
+        public string PhoneNumber { get; set; } = string.Empty;
 
     }
 }

@@ -3,6 +3,7 @@ using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using EmployeesMVC_Core_8.Services.Email;
 using EmployeesMVC_Core_8.Services.Firebase_Notifications;
+using EmployeesMVC_Core_8.Services.WhatsApp;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Hangfire;
@@ -19,6 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IEmailHelper, EmailHelper>();
 builder.Services.AddScoped<IFirebaseService, FirebaseService>();
+builder.Services.AddHttpClient<IWhatsAppService, WhatsAppService>();
 
 //solve error with camelCase in JSON responses
 builder.Services.AddControllersWithViews()

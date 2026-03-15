@@ -4,6 +4,7 @@ using EmployeesMVC_Core_8.Hubs;
 using EmployeesMVC_Core_8.Models;
 using EmployeesMVC_Core_8.Services.Email;
 using EmployeesMVC_Core_8.Services.Firebase_Notifications;
+using EmployeesMVC_Core_8.Services.WhatsApp;
 using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Microsoft.AspNetCore.Mvc;
@@ -21,14 +22,16 @@ namespace EmployeesMVC_Core_8.Controllers
         private readonly IHubContext<EmployeeHub> _hub;
         private readonly IEmailHelper _email;
         private readonly IFirebaseService _firebaseService;
+        private readonly IWhatsAppService _whatsappService;
 
 
-        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub, IEmailHelper email, IFirebaseService firebaseService)
+        public EmployeeController(AppDbContext context, IHubContext<EmployeeHub> hub, IEmailHelper email, IFirebaseService firebaseService, IWhatsAppService whatsappService)
         {
             _context = context;
             _hub = hub;
             _email = email;
             _firebaseService = firebaseService;
+            _whatsappService = whatsappService;
         }
         public IActionResult Index()
         {
@@ -46,6 +49,7 @@ namespace EmployeesMVC_Core_8.Controllers
                     e.EmployeeId, 
                     e.Name,
                     e.Email,
+                    e.PhoneNumber,
                     e.Latitude,
                     e.Longitude,
                     Status = (int)e.Status,
@@ -56,7 +60,7 @@ namespace EmployeesMVC_Core_8.Controllers
             return Json(new { data = employees });
         }
         [HttpPost]
-        public async Task<IActionResult> AddEmployee(string name, string email, int departmentId, double latitude, double longitude)
+        public async Task<IActionResult> AddEmployee(string name, string email,string phone ,int departmentId, double latitude, double longitude)
         {
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(email))
                 return Json(new { success = false, message = "Name and Email are required" });
@@ -65,6 +69,7 @@ namespace EmployeesMVC_Core_8.Controllers
             {
                 Name = name,
                 Email = email,
+                PhoneNumber = phone,
                 Longitude = longitude,
                 Latitude = latitude,
                 DepartmentId = departmentId
@@ -74,12 +79,13 @@ namespace EmployeesMVC_Core_8.Controllers
 
             var saved = await _context.SaveChangesAsync();
 
-            
+            await _whatsappService.SendMessage(emp.PhoneNumber, $"Welcome {name} to ALBAIT Company! We're glad to have you on board.");
             await _hub.Clients.All.SendAsync("EmployeeAdded", new
             {
                 emp.EmployeeId,
                 emp.Name,
                 emp.Email,
+                emp.PhoneNumber,
                 DepartmentName = _context.Departments.FirstOrDefault(d => d.DepartmentId == emp.DepartmentId)?.Name,
                 emp.Status,
                 emp.Latitude,
